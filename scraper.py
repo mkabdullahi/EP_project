@@ -188,7 +188,8 @@ if __name__ == "__main__":
     print(json.dumps(data, indent=2))
     # 5. Push data back to n8n Webhook
     webhook_url = os.getenv("N8N_WEBHOOK_URL")
-    if webhook_url:
-        requests.post(webhook_url, json=data)
+    if webhook_url and data:
+         response = requests.post(webhook_url, json=data)
+         print(f"Posted data to webhook, response status: {response.status_code}")
     else:
         print("No webhook URL set, skipping webhook post.")
