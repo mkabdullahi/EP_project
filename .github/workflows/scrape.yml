@@ -1,0 +1,23 @@
+name: EP Scraper
+on:
+  workflow_dispatch: # Allows n8n to trigger this via API
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      - name: Install dependencies
+        run: |
+          pip install playwright requests
+          playwright install chromium
+          
+      - name: Run Scraper
+        env:
+          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
+        run: python scraper.py
