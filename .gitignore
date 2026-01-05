@@ -1,6 +1,6 @@
 __pycache__/
 .env
 *.log
-temp/
+tmp/
 *.tmp
 .DS_Store
