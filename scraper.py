@@ -1,16 +1,20 @@
 import json
+import logging
 import os
 import re
 from datetime import datetime
 import requests
 from playwright.sync_api import sync_playwright
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 def scrape_ep():
     results = []
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(
-                headless=True,  # UI first for debugging
+                headless=True, 
                 args=[
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
@@ -23,16 +27,16 @@ def scrape_ep():
             )
             page = browser.new_page()
 
-            print("Navigating to the page...")
+            logger.info("Navigating to EP texts adopted page.")
             page.goto("https://www.europarl.europa.eu/plenary/en/texts-adopted.html")
             page.wait_for_load_state("networkidle")
 
             # Try to accept cookies - adjust selector if needed
             try:
                 page.click("text=I accept analytics cookies", timeout=5000)
-                print("Accepted cookies.")
+                logger.info("Accepted cookies.")
             except:
-                print("Cookie button not found or already accepted.")
+                logger.info("Cookie button not found or already accepted.")
 
             page.wait_for_timeout(2000)  # Brief wait for any dynamic content
 
@@ -40,23 +44,23 @@ def scrape_ep():
             try:
                 page.wait_for_selector("h4.expand_collapse_closed:has-text('More options')", state="visible", timeout=10000)
                 page.click("h4.expand_collapse_closed:has-text('More options')")
-                print("Expanded More options.")
+                logger.info("Expanded More options.")
             except Exception as e:
-                print(f"Could not expand More options: {e}. Proceeding without filtering.")
+                logger.warning(f"Could not expand More options: {e}. Proceeding without filtering.")
 
             # Try to fill date and search - adjust button selector
             try:
                 page.fill("input[name='refSittingDateStart']", "01/07/2025")
                 page.click("input#sidesButtonSubmit")
                 page.wait_for_load_state("networkidle")
-                print("Applied date filter and searched.")
+                logger.info("Applied date filter and searched.")
             except Exception as e:
-                print(f"Could not apply filter: {e}. Extracting default results.")
+                logger.warning(f"Could not apply filter: {e}. Extracting default results.")
 
             # Extract entries - results are in div.notice
-            print("Extracting data...")
+            logger.info("Extracting data...")
             items = page.query_selector_all("div.notice")
-            print(f"Found {len(items)} items.")
+            logger.info(f"Found {len(items)} items.")
 
             parsed_date = datetime.now().strftime("%d-%b-%Y").upper()  # e.g., 01-APR-2026
 
@@ -125,7 +129,7 @@ def scrape_ep():
             while True:
                 next_btn = page.query_selector("a:has-text('Next'), button:has-text('Next')")
                 if next_btn:
-                    print(f"Loading page {page_num + 1}...")
+                    logger.info(f"Loading page {page_num + 1}...")
                     next_btn.click()
                     page.wait_for_load_state("networkidle")
                     page_num += 1
@@ -176,20 +180,20 @@ def scrape_ep():
                     break
 
             browser.close()
-            print(f"Extraction complete. Found {len(results)} items.")
+            logger.info(f"Extraction complete. Found {len(results)} items.")
     except Exception as e:
-        print(f"Error during scraping: {e}")
+        logger.error(f"Error during scraping: {e}")
         # Return whatever was extracted so far
 
     return results
 
 if __name__ == "__main__":
     data = scrape_ep()
-    print(json.dumps(data, indent=2))
+    logger.info(json.dumps(data, indent=2))
     # 5. Push data back to n8n Webhook
     webhook_url = os.getenv("N8N_WEBHOOK_URL")
     if webhook_url and data:
          response = requests.post(webhook_url, json=data)
-         print(f"Posted data to webhook, response status: {response.status_code}")
+         logger.info(f"Posted data to webhook, response status: {response.status_code}")
     else:
-        print("No webhook URL set, skipping webhook post.")
+        logger.info("No webhook URL set, skipping webhook post.")
